@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src https://jxxqnyddqxqrzsndkwsu.supabase.co; base-uri 'none'; form-action 'none'">
+<title>Confirma tu correo | Gestión Negocio</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100svh;display:grid;place-items:center;padding:24px;background:#f4f7fa;color:#172b3a;font:16px/1.6 system-ui,sans-serif}main{width:100%;max-width:460px;background:white;border:1px solid #e3eaf0;border-radius:24px;padding:40px 30px;text-align:center;box-shadow:0 16px 60px #1833490d}.brand{font-weight:750;letter-spacing:-.5px;color:#184d53;font-size:21px}.icon{display:grid;place-items:center;margin:32px auto 24px;width:72px;height:72px;border-radius:50%;background:#e5f5ee;color:#16764b;font-size:34px}h1{font-size:28px;line-height:1.2;letter-spacing:-.7px;margin:0 0 16px}p{color:#60717e;margin:0 0 24px}button{font:inherit;font-weight:650;width:100%;padding:14px;border:0;border-radius:12px;color:white;background:#184d53;cursor:pointer}button:disabled{opacity:.65;cursor:wait}button[hidden]{display:none}.foot{font-size:13px;color:#81909a;margin-top:28px}noscript{display:block;color:#a44927}
+</style>
+</head>
+<body><main>
+<div class="brand">Gestión Negocio</div><div class="icon" id="icon" aria-hidden="true">✉</div>
+<section aria-live="polite"><h1 id="title">Confirma tu correo</h1><p id="message">Pulsa el botón para activar tu cuenta y empezar a organizar tu negocio.</p></section>
+<button id="confirm" hidden>Confirmar mi correo</button>
+<noscript>Activa JavaScript en tu navegador para confirmar tu correo.</noscript>
+<div class="foot">Tu negocio, en el bolsillo.</div>
+</main>
+<script>
+(() => {
+  const query = new URLSearchParams(location.search);
+  const fragment = new URLSearchParams(location.hash.slice(1));
+  let tokenHash = query.get('token_hash');
+  let accessToken = fragment.get('access_token');
+  // Never retain tokens in the address bar, storage, analytics or log output.
+  history.replaceState(null, '', location.pathname);
+  const button = document.getElementById('confirm');
+  function show(title, message, icon) {
+    document.getElementById('title').textContent = title;
+    document.getElementById('message').textContent = message;
+    document.getElementById('icon').textContent = icon;
+  }
+  function invalid() {
+    show('Este enlace ya no está disponible', 'Si ya confirmaste tu correo, vuelve a la app e inicia sesión. Si todavía no puedes entrar, solicita un nuevo correo de confirmación.', '↻');
+  }
+  if (fragment.has('error') || query.has('error')) { invalid(); return; }
+  if (fragment.get('type') === 'recovery') {
+    show('Recuperación de contraseña', 'Este enlace es para recuperar tu contraseña, no para confirmar tu correo. Vuelve a la app para continuar con la recuperación.', '↻');
+    return;
+  }
+  if (!tokenHash && !accessToken) {
+    show('Abre el correo de confirmación', 'Para activar tu cuenta, abre el enlace del correo más reciente de Gestión Negocio. Si ya lo confirmaste, puedes volver a la app e iniciar sesión.', '✉');
+    return;
+  }
+  button.hidden = false;
+  async function verify() {
+    if (button.disabled) return;
+    button.disabled = true;
+    button.textContent = 'Confirmando…';
+    try {
+      // Verify only after a deliberate click: mail scanners cannot consume the link.
+      const response = accessToken
+        ? await fetch('https://jxxqnyddqxqrzsndkwsu.supabase.co/auth/v1/user', {
+            headers: { apikey: 'sb_publishable_T-8pg0rHaOXc26zcdAnKLg_H0_4f7H4', Authorization: 'Bearer ' + accessToken },
+          })
+        : await fetch('https://jxxqnyddqxqrzsndkwsu.supabase.co/auth/v1/verify', {
+            method: 'POST', headers: {'Content-Type': 'application/json', apikey: 'sb_publishable_T-8pg0rHaOXc26zcdAnKLg_H0_4f7H4'},
+            body: JSON.stringify({ token_hash: tokenHash, type: 'signup' }),
+          });
+      if (response.ok && accessToken) {
+        const user = await response.json();
+        if (!user.email_confirmed_at) { accessToken = null; button.hidden = true; invalid(); return; }
+      }
+      if (response.ok) {
+        tokenHash = null; accessToken = null;
+        button.hidden = true;
+        show('¡Correo confirmado!', 'Tu cuenta está lista. Vuelve a Gestión Negocio e inicia sesión con tu correo y contraseña.', '✓');
+      } else if (response.status === 429 || response.status >= 500) {
+        show('Inténtalo en unos momentos', 'No pudimos confirmar tu correo ahora. Espera un momento y vuelve a pulsar el botón.', '↻');
+      } else {
+        tokenHash = null; accessToken = null;
+        button.hidden = true;
+        invalid();
+      }
+    } catch {
+      show('Revisa tu conexión', 'No pudimos conectar. Comprueba tu conexión a internet y vuelve a intentarlo.', '↻');
+    } finally {
+      button.disabled = false;
+      button.textContent = accessToken ? 'Volver a comprobar' : 'Confirmar mi correo';
+    }
+  }
+  button.addEventListener('click', verify);
+  if (accessToken) {
+    show('Comprobando tu correo…', 'Estamos comprobando la confirmación. Solo tomará un momento.', '✉');
+    verify();
+  }
+})();
+</script></body></html>
